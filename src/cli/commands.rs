@@ -1,4 +1,4 @@
-use crate::cli::args::{InspectArgs, InteractiveArgs, RunArgs};
+use crate::cli::args::{InspectArgs, InteractiveArgs, RunArgs, CompletionsArgs};
 use crate::debugger::engine::DebuggerEngine;
 use crate::runtime::executor::ContractExecutor;
 use crate::ui::tui::DebuggerUI;
@@ -106,6 +106,19 @@ pub fn inspect(args: InspectArgs) -> Result<()> {
         println!("\nMetadata:");
         println!("  (Metadata parsing not yet implemented)");
     }
+
+    Ok(())
+}
+
+/// Generate shell completion scripts
+pub fn completions(args: CompletionsArgs) -> Result<()> {
+    use clap::CommandFactory;
+    use clap_complete::generate;
+    use crate::cli::args::Cli;
+    use std::io;
+
+    let mut cmd = Cli::command();
+    generate(args.shell, &mut cmd, "soroban-debug", &mut io::stdout());
 
     Ok(())
 }

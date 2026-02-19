@@ -27,6 +27,9 @@ fn main() -> Result<()> {
         Commands::Inspect(args) => {
             soroban_debugger::cli::commands::inspect(args)?;
         }
+        Commands::Completions(args) => {
+            soroban_debugger::cli::commands::completions(args)?;
+        }
     }
 
     Ok(())

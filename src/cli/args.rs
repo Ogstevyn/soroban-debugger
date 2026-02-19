@@ -20,6 +20,9 @@ pub enum Commands {
 
     /// Inspect contract information without executing
     Inspect(InspectArgs),
+
+    /// Generate shell completion scripts
+    Completions(CompletionsArgs),
 }
 
 #[derive(Parser)]
@@ -73,4 +76,11 @@ pub struct InspectArgs {
     /// Show contract metadata
     #[arg(long)]
     pub metadata: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct CompletionsArgs {
+    /// The shell to generate completions for
+    #[arg(value_enum)]
+    pub shell: clap_complete::Shell,
 }
