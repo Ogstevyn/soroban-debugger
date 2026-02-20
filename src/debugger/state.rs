@@ -1,8 +1,9 @@
 use crate::debugger::instruction_pointer::{InstructionPointer, StepMode};
 use crate::runtime::instruction::Instruction;
+use crate::inspector::stack::CallStackInspector;
 
 /// Represents the current state of the debugger
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DebugState {
     current_function: Option<String>,
     step_count: usize,
@@ -14,6 +15,7 @@ pub struct DebugState {
     instructions: Vec<Instruction>,
     /// Whether instruction-level debugging is enabled
     instruction_debug_enabled: bool,
+    call_stack: CallStackInspector,
 }
 
 impl DebugState {
@@ -26,6 +28,7 @@ impl DebugState {
             current_instruction: None,
             instructions: Vec::new(),
             instruction_debug_enabled: false,
+            call_stack: CallStackInspector::new(),
         }
     }
 
@@ -149,6 +152,14 @@ impl DebugState {
         } else {
             false
         }
+    /// Get reference to call stack
+    pub fn call_stack(&self) -> &CallStackInspector {
+        &self.call_stack
+    }
+
+    /// Get mutable reference to call stack
+    pub fn call_stack_mut(&mut self) -> &mut CallStackInspector {
+        &mut self.call_stack
     }
 
     /// Reset the state
@@ -180,5 +191,6 @@ impl DebugState {
 impl Default for DebugState {
     fn default() -> Self {
         Self::new()
+        self.call_stack.clear();
     }
 }
