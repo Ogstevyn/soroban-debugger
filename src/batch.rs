@@ -64,8 +64,12 @@ impl BatchExecutor {
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read batch file: {:?}", path.as_ref()))?;
 
-        let items: Vec<BatchItem> = serde_json::from_str(&content)
-            .with_context(|| format!("Failed to parse batch file as JSON array: {:?}", path.as_ref()))?;
+        let items: Vec<BatchItem> = serde_json::from_str(&content).with_context(|| {
+            format!(
+                "Failed to parse batch file as JSON array: {:?}",
+                path.as_ref()
+            )
+        })?;
 
         Ok(items)
     }
@@ -88,13 +92,15 @@ impl BatchExecutor {
         let executor_result = ContractExecutor::new(self.wasm_bytes.clone());
 
         let (result_str, success, error) = match executor_result {
-            Ok(executor) => {
-                match executor.execute(&self.function, Some(&item.args)) {
-                    Ok(result) => (result, true, None),
-                    Err(e) => (String::new(), false, Some(format!("{:#}", e))),
-                }
-            }
-            Err(e) => (String::new(), false, Some(format!("Failed to create executor: {:#}", e))),
+            Ok(executor) => match executor.execute(&self.function, Some(&item.args)) {
+                Ok(result) => (result, true, None),
+                Err(e) => (String::new(), false, Some(format!("{:#}", e))),
+            },
+            Err(e) => (
+                String::new(),
+                false,
+                Some(format!("Failed to create executor: {:#}", e)),
+            ),
         };
 
         let duration_ms = start.elapsed().as_millis();
@@ -162,7 +168,10 @@ impl BatchExecutor {
                 if let Some(expected) = &result.expected {
                     println!("  Expected: {}", expected);
                     if !result.passed {
-                        println!("  {}", Formatter::warning("Result does not match expected value"));
+                        println!(
+                            "  {}",
+                            Formatter::warning("Result does not match expected value")
+                        );
                     }
                 }
             } else if let Some(error) = &result.error {
@@ -176,14 +185,23 @@ impl BatchExecutor {
         println!("  Summary");
         println!("{}", "=".repeat(80));
         println!("  Total:    {}", summary.total);
-        println!("  {}", Formatter::success(format!("Passed:   {}", summary.passed)));
+        println!(
+            "  {}",
+            Formatter::success(format!("Passed:   {}", summary.passed))
+        );
 
         if summary.failed > 0 {
-            println!("  {}", Formatter::warning(format!("Failed:   {}", summary.failed)));
+            println!(
+                "  {}",
+                Formatter::warning(format!("Failed:   {}", summary.failed))
+            );
         }
 
         if summary.errors > 0 {
-            println!("  {}", Formatter::error(format!("Errors:   {}", summary.errors)));
+            println!(
+                "  {}",
+                Formatter::error(format!("Errors:   {}", summary.errors))
+            );
         }
 
         println!("  Duration: {}ms", summary.total_duration_ms);

@@ -79,10 +79,7 @@ fn run_batch(args: &RunArgs, batch_file: &std::path::Path) -> Result<()> {
         println!("\n{}", serde_json::to_string_pretty(&output)?);
     }
 
-    logging::log_execution_complete(&format!(
-        "{}/{} passed",
-        summary.passed, summary.total
-    ));
+    logging::log_execution_complete(&format!("{}/{} passed", summary.passed, summary.total));
 
     if summary.failed > 0 || summary.errors > 0 {
         anyhow::bail!(
@@ -94,7 +91,6 @@ fn run_batch(args: &RunArgs, batch_file: &std::path::Path) -> Result<()> {
 
     Ok(())
 }
-
 
 /// Execute the run command.
 pub fn run(args: RunArgs, _verbosity: Verbosity) -> Result<()> {
