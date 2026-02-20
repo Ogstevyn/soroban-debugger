@@ -1,3 +1,4 @@
+use crate::utils::ArgumentParser;
 use crate::{DebuggerError, Result};
 use soroban_env_host::Host;
 use soroban_sdk::{Address, Env, InvokeError, Symbol, Val, Vec as SorobanVec};
@@ -71,18 +72,17 @@ impl ContractExecutor {
             Err(Ok(inv_err)) => match inv_err {
                 InvokeError::Contract(code) => {
                     warn!("Contract returned error code: {}", code);
-                    Err(DebuggerError::ExecutionError(format!(
-                        "Contract error code: {}",
-                        code
-                    ))
-                    .into())
+                    Err(
+                        DebuggerError::ExecutionError(format!("Contract error code: {}", code))
+                            .into(),
+                    )
                 }
                 InvokeError::Abort => {
                     warn!("Contract execution aborted");
-                    Err(DebuggerError::ExecutionError(
-                        "Contract execution aborted".to_string(),
+                    Err(
+                        DebuggerError::ExecutionError("Contract execution aborted".to_string())
+                            .into(),
                     )
-                    .into())
                 }
             },
             Err(Err(inv_err)) => {
@@ -109,10 +109,16 @@ impl ContractExecutor {
     }
 
     /// Parse JSON arguments into contract values
-    fn parse_args(&self, _args_json: &str) -> Result<Vec<Val>> {
-        // TODO: Implement proper argument parsing
-        // For now, return empty vec
-        info!("Argument parsing not yet implemented");
-        Ok(vec![])
+    fn parse_args(&self, args_json: &str) -> Result<Vec<Val>> {
+        info!("Parsing arguments: {}", args_json);
+        let parser = ArgumentParser::new(self.env.clone());
+        parser.parse_args_string(args_json).map_err(|e| {
+            warn!("Failed to parse arguments: {}", e);
+            DebuggerError::InvalidArguments(e.to_string()).into()
+        })
+    }
+    /// Get events captured during execution
+    pub fn get_events(&self) -> Result<Vec<crate::inspector::events::ContractEvent>> {
+        crate::inspector::events::EventInspector::get_events(self.env.host())
     }
 }

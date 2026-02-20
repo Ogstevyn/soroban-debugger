@@ -1,5 +1,7 @@
 # Soroban Debugger
 
+[![CI](https://github.com/Timi16/soroban-debugger/actions/workflows/ci.yml/badge.svg)](https://github.com/Timi16/soroban-debugger/actions/workflows/ci.yml)
+
 A command-line debugger for Soroban smart contracts on the Stellar network. Debug your contracts interactively with breakpoints, step-through execution, state inspection, and budget tracking.
 
 ## Features
@@ -35,7 +37,11 @@ cargo install soroban-debugger
 Debug a contract by specifying the WASM file and function to execute:
 
 ```bash
+# Array arguments
 soroban-debug run --contract token.wasm --function transfer --args '["Alice", "Bob", 100]'
+
+# Map argument (JSON object)
+soroban-debug run --contract token.wasm --function update --args '{"user":"Alice","balance":1000}'
 ```
 
 ### Interactive Mode
@@ -134,6 +140,30 @@ soroban-debug run \
   --contract token.wasm \
   --function transfer \
   --args '["user1", "user2", 100]'
+```
+
+### Example 1a: Debug with Map Arguments
+
+Pass JSON objects as Map arguments:
+
+```bash
+# Flat map argument
+soroban-debug run \
+  --contract token.wasm \
+  --function update_user \
+  --args '{"user":"ABC","balance":1000}'
+
+# Nested map argument
+soroban-debug run \
+  --contract token.wasm \
+  --function update_user \
+  --args '{"user":"ABC","balance":1000,"metadata":{"verified":true,"level":"premium"}}'
+
+# Mixed-type values in map
+soroban-debug run \
+  --contract dao.wasm \
+  --function create_proposal \
+  --args '{"title":"Proposal 1","votes":42,"active":true,"tags":["important","urgent"]}'
 ```
 
 Output:
@@ -334,3 +364,29 @@ at your option.
 ## Acknowledgments
 
 Built for the Stellar ecosystem to improve the Soroban smart contract development experience.
+
+## Docker
+
+### Build Locally
+
+```bash
+docker build -t soroban-debugger:local .
+```
+
+### Run with a Mounted WASM
+
+```bash
+docker run --rm -v "$(pwd):/contracts" ghcr.io/your-org/soroban-debug run --contract /contracts/token.wasm --function transfer
+```
+
+### Interactive Mode (TTY)
+
+```bash
+docker run --rm -it -v "$(pwd):/contracts" ghcr.io/your-org/soroban-debug interactive --contract /contracts/token.wasm
+```
+
+### Docker Compose
+
+```bash
+docker compose run --rm soroban-debug run --contract /contracts/token.wasm --function transfer
+```

@@ -47,9 +47,21 @@ pub struct RunArgs {
     #[arg(short, long)]
     pub breakpoint: Vec<String>,
 
+    /// Network snapshot file to load before execution
+    #[arg(long)]
+    pub network_snapshot: Option<PathBuf>,
+
     /// Enable verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Show contract events emitted during execution
+    #[arg(long)]
+    pub show_events: bool,
+
+    /// Filter events by topic
+    #[arg(long)]
+    pub filter_topic: Option<String>,
 }
 
 #[derive(Parser)]
@@ -57,6 +69,10 @@ pub struct InteractiveArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Network snapshot file to load before starting interactive session
+    #[arg(long)]
+    pub network_snapshot: Option<PathBuf>,
 
     /// Enable verbose output
     #[arg(short, long)]
@@ -78,9 +94,52 @@ pub struct InspectArgs {
     pub metadata: bool,
 }
 
-#[derive(Parser, Debug)]
-pub struct CompletionsArgs {
-    /// The shell to generate completions for
-    #[arg(value_enum)]
-    pub shell: clap_complete::Shell,
+#[derive(Parser)]
+pub struct OptimizeArgs {
+    /// Path to the contract WASM file
+    #[arg(short, long)]
+    pub contract: PathBuf,
+
+    /// Function name to analyze (can be specified multiple times)
+    #[arg(short, long)]
+    pub function: Vec<String>,
+
+    /// Function arguments as JSON array (e.g., '["arg1", "arg2"]')
+    #[arg(short, long)]
+    pub args: Option<String>,
+
+    /// Output file for the optimization report (default: stdout)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Initial storage state as JSON object
+    #[arg(short, long)]
+    pub storage: Option<String>,
+
+    /// Network snapshot file to load before analysis
+    #[arg(long)]
+    pub network_snapshot: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct UpgradeCheckArgs {
+    /// Path to the old contract WASM file
+    #[arg(short, long)]
+    pub old: PathBuf,
+
+    /// Path to the new contract WASM file
+    #[arg(short, long)]
+    pub new: PathBuf,
+
+    /// Function name to test side-by-side (optional)
+    #[arg(short, long)]
+    pub function: Option<String>,
+
+    /// Function arguments as JSON array for side-by-side test
+    #[arg(short, long)]
+    pub args: Option<String>,
+
+    /// Output file for the compatibility report (default: stdout)
+    #[arg(long)]
+    pub output: Option<PathBuf>,
 }
