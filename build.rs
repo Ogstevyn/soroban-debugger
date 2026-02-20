@@ -43,7 +43,8 @@ fn main() -> std::io::Result<()> {
 fn emit_build_metadata() {
     let git_hash = command_stdout("git", &["rev-parse", "--short", "HEAD"])
         .unwrap_or_else(|| "unknown".to_string());
-    let rustc_version = command_stdout("rustc", &["--version"]).unwrap_or_else(|| "unknown".to_string());
+    let rustc_version =
+        command_stdout("rustc", &["--version"]).unwrap_or_else(|| "unknown".to_string());
     let build_date = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
