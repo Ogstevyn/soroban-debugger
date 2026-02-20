@@ -11,6 +11,10 @@ use tracing::info as log_info;
 
 /// Execute the run command
 pub fn run(args: RunArgs) -> Result<()> {
+    if args.dry_run {
+        return run_dry_run(&args);
+    }
+
     println!("Loading contract: {:?}", args.contract);
 
     // Load WASM file
@@ -112,6 +116,114 @@ pub fn run(args: RunArgs) -> Result<()> {
         let inspector = crate::inspector::StorageInspector::new(&storage_data);
         inspector.display_filtered(&storage_filter);
     }
+
+    Ok(())
+}
+
+/// Execute the run command in dry-run mode
+fn run_dry_run(args: &RunArgs) -> Result<()> {
+    println!("[DRY RUN] Loading contract: {:?}", args.contract);
+
+    // Load WASM file
+    let wasm_bytes = fs::read(&args.contract)
+        .with_context(|| format!("Failed to read WASM file: {:?}", args.contract))?;
+
+    println!("[DRY RUN] Contract loaded successfully ({} bytes)", wasm_bytes.len());
+
+    // Load network snapshot if provided
+    if let Some(snapshot_path) = &args.network_snapshot {
+        println!("\n[DRY RUN] Loading network snapshot: {:?}", snapshot_path);
+        let loader = SnapshotLoader::from_file(snapshot_path)?;
+        let loaded_snapshot = loader.apply_to_environment()?;
+        println!("[DRY RUN] {}", loaded_snapshot.format_summary());
+    }
+
+    // Parse arguments if provided
+    let parsed_args = if let Some(args_json) = &args.args {
+        Some(parse_args(args_json)?)
+    } else {
+        None
+    };
+
+    // Parse storage if provided
+    let initial_storage = if let Some(storage_json) = &args.storage {
+        Some(parse_storage(storage_json)?)
+    } else {
+        None
+    };
+
+    println!("\n[DRY RUN] Starting debugger...");
+    println!("[DRY RUN] Function: {}", args.function);
+    if let Some(ref args) = parsed_args {
+        println!("[DRY RUN] Arguments: {}", args);
+    }
+
+    // Create executor for dry-run (this will be rolled back)
+    let mut executor = ContractExecutor::new(wasm_bytes)?;
+
+    // Set up initial storage if provided
+    if let Some(storage) = &initial_storage {
+        executor.set_initial_storage(storage.clone())?;
+    }
+
+    // Snapshot storage state before execution
+    let storage_snapshot = executor.snapshot_storage()?;
+    println!("[DRY RUN] Storage state snapshotted");
+
+    // Create debugger engine
+    let mut engine = DebuggerEngine::new(executor, args.breakpoint.clone());
+
+    // Execute with debugging
+    println!("\n[DRY RUN] --- Execution Start ---\n");
+    let result = engine.execute(&args.function, parsed_args.as_deref())?;
+    println!("\n[DRY RUN] --- Execution Complete ---\n");
+
+    println!("[DRY RUN] Result: {:?}", result);
+
+    // Display events if requested
+    if args.show_events {
+        println!("\n[DRY RUN] --- Events ---");
+        let events = engine.executor().get_events()?;
+        let filtered_events = if let Some(topic) = &args.filter_topic {
+            crate::inspector::events::EventInspector::filter_events(&events, topic)
+        } else {
+            events
+        };
+
+        if filtered_events.is_empty() {
+            println!("[DRY RUN] No events captured.");
+        } else {
+            for (i, event) in filtered_events.iter().enumerate() {
+                println!("[DRY RUN] Event #{}:", i);
+                if let Some(contract_id) = &event.contract_id {
+                    println!("[DRY RUN]   Contract: {}", contract_id);
+                }
+                println!("[DRY RUN]   Topics: {:?}", event.topics);
+                println!("[DRY RUN]   Data: {}", event.data);
+                println!();
+            }
+        }
+    }
+
+    // Display storage with optional filtering
+    if !args.storage_filter.is_empty() {
+        let storage_filter = crate::inspector::storage::StorageFilter::new(&args.storage_filter)
+            .map_err(|e| anyhow::anyhow!("Invalid storage filter: {}", e))?;
+        println!("\n[DRY RUN] --- Storage (Post-Execution) ---");
+        
+        // Note: Storage display would go here if get_storage() is implemented
+        // For now, we'll show a message
+        println!("[DRY RUN] Storage changes would be displayed here");
+        println!("[DRY RUN] (Storage inspection not yet fully implemented)");
+    } else {
+        println!("\n[DRY RUN] --- Storage Changes ---");
+        println!("[DRY RUN] (Use --storage-filter to view specific storage entries)");
+    }
+
+    // Restore storage state (rollback)
+    engine.executor_mut().restore_storage(&storage_snapshot)?;
+    println!("\n[DRY RUN] Storage state restored (all changes rolled back)");
+    println!("[DRY RUN] Dry-run completed - no persistent changes were made");
 
     Ok(())
 }
