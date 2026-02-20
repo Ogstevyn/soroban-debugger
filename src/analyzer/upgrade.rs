@@ -300,7 +300,7 @@ mod tests {
             params: vec!["I32".to_string()],
             results: vec!["Val".to_string()],
         };
-        let diff = analyzer.diff_signatures(&[sig.clone()], &[sig.clone()]);
+        let diff = analyzer.diff_signatures(std::slice::from_ref(&sig), std::slice::from_ref(&sig));
         assert!(diff.added.is_empty());
         assert!(diff.removed.is_empty());
         assert!(diff.changed.is_empty());
@@ -320,7 +320,8 @@ mod tests {
             results: vec![],
         };
 
-        let diff = analyzer.diff_signatures(&[sig1.clone()], &[sig2.clone()]);
+        let diff =
+            analyzer.diff_signatures(std::slice::from_ref(&sig1), std::slice::from_ref(&sig2));
 
         assert_eq!(diff.removed.len(), 1);
         assert_eq!(diff.removed[0].name, "foo");
