@@ -471,6 +471,8 @@ fn run_dry_run(args: &RunArgs) -> Result<()> {
         print_info(format!("[DRY RUN] {}", loaded_snapshot.format_summary()));
     }
 
+    // Create executor
+    let mut executor = ContractExecutor::new(wasm_bytes)?;
     let _parsed_args = if let Some(args_json) = &args.args {
         Some(parse_args(args_json)?)
     } else {
@@ -544,12 +546,10 @@ pub fn interactive(args: InteractiveArgs, _verbosity: Verbosity) -> Result<()> {
     ));
     logging::log_contract_loaded(wasm_bytes.len());
 
-    if let Some(snapshot_path) = &args.network_snapshot {
-        print_info(format!("\nLoading network snapshot: {:?}", snapshot_path));
-        logging::log_loading_snapshot(&snapshot_path.to_string_lossy());
-        let loader = SnapshotLoader::from_file(snapshot_path)?;
-        let loaded_snapshot = loader.apply_to_environment()?;
-        logging::log_display(loaded_snapshot.format_summary(), logging::LogLevel::Info);
+    // Set up initial storage if provided
+    if let Some(storage_json) = &args.storage {
+        let storage = parse_storage(storage_json)?;
+        executor.set_initial_storage(storage)?;
     }
 
     let executor = ContractExecutor::new(wasm_bytes)?;
@@ -560,6 +560,17 @@ pub fn interactive(args: InteractiveArgs, _verbosity: Verbosity) -> Result<()> {
     logging::log_interactive_mode_start();
 
     let mut ui = DebuggerUI::new(engine)?;
+    
+    // If storage was provided, sync it with the UI inspector
+    if let Some(storage_json) = &args.storage {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(storage_json) {
+            if let Some(obj) = value.as_object() {
+                for (k, v) in obj {
+                    ui.storage_inspector_mut().set(k, v.to_string());
+                }
+            }
+        }
+    }
     ui.run()?;
 
     Ok(())

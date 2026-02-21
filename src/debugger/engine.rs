@@ -84,14 +84,13 @@ impl DebuggerEngine {
     pub fn execute(&mut self, function: &str, args: Option<&str>) -> Result<String> {
         info!("Executing function: {}", function);
 
-        if let Ok(mut state) = self.state.lock() {
-            state.set_current_function(function.to_string());
-            state.call_stack_mut().clear();
-            state.call_stack_mut().push(function.to_string(), None);
-        }
+        // Initialize stack state
+        self.state.set_current_function(function.to_string(), args.map(|a| a.to_string()));
+        self.state.call_stack_mut().clear();
+        self.state.call_stack_mut().push(function.to_string(), None);
 
         if self.breakpoints.should_break(function) {
-            self.pause_at_function(function);
+            self.pause_at_function(function, args);
         }
 
         let start_time = std::time::Instant::now();
@@ -287,14 +286,11 @@ impl DebuggerEngine {
         Ok(())
     }
 
-    fn pause_at_function(&mut self, function: &str) {
-        crate::logging::log_breakpoint(function);
+    /// Pause execution at a function
+    fn pause_at_function(&mut self, function: &str, args: Option<&str>) {
         self.paused = true;
-
-        if let Ok(mut state) = self.state.lock() {
-            state.set_current_function(function.to_string());
-            state.call_stack().display();
-        }
+        self.state.set_current_function(function.to_string(), args.map(|a| a.to_string()));
+        info!("Breakpoint triggered at function: {}", function);
     }
 
     pub fn is_paused(&self) -> bool {

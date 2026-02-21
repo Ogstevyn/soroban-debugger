@@ -245,10 +245,13 @@ pub struct InteractiveArgs {
     pub network_snapshot: Option<PathBuf>,
 }
 
-impl InteractiveArgs {
-    pub fn merge_config(&mut self, _config: &Config) {
-        // Future interactive-specific config could go here
-    }
+    /// Initial storage state as JSON object
+    #[arg(short, long)]
+    pub storage: Option<String>,
+
+    /// Enable verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 #[derive(Parser)]
