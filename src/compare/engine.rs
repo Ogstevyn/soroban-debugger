@@ -102,7 +102,10 @@ impl CompareEngine {
             label_b,
             storage_diff: Self::diff_storage(&trace_a.storage, &trace_b.storage),
             budget_diff: Self::diff_budget(&trace_a.budget, &trace_b.budget),
-            return_value_diff: Self::diff_return_value(&trace_a.return_value, &trace_b.return_value),
+            return_value_diff: Self::diff_return_value(
+                &trace_a.return_value,
+                &trace_b.return_value,
+            ),
             flow_diff: Self::diff_flow(&trace_a.call_sequence, &trace_b.call_sequence),
             event_diff: Self::diff_events(&trace_a.events, &trace_b.events),
         }
@@ -154,15 +157,11 @@ impl CompareEngine {
 
     fn diff_budget(a: &Option<BudgetTrace>, b: &Option<BudgetTrace>) -> BudgetDiff {
         let cpu_delta = match (a, b) {
-            (Some(a), Some(b)) => {
-                Some(b.cpu_instructions as i128 - a.cpu_instructions as i128)
-            }
+            (Some(a), Some(b)) => Some(b.cpu_instructions as i128 - a.cpu_instructions as i128),
             _ => None,
         };
         let memory_delta = match (a, b) {
-            (Some(a), Some(b)) => {
-                Some(b.memory_bytes as i128 - a.memory_bytes as i128)
-            }
+            (Some(a), Some(b)) => Some(b.memory_bytes as i128 - a.memory_bytes as i128),
             _ => None,
         };
 
@@ -269,12 +268,14 @@ impl CompareEngine {
 
         let double_rule = OutputConfig::double_rule_line(59);
         out.push_str(&format!("{double_rule}\n"));
+        out.push_str("═══════════════════════════════════════════════════════════════\n");
         out.push_str("  Execution Trace Comparison\n");
         out.push_str(&format!(
             "  A: {}\n  B: {}\n",
             report.label_a, report.label_b
         ));
         out.push_str(&format!("{double_rule}\n\n"));
+        out.push_str("═══════════════════════════════════════════════════════════════\n\n");
 
         // ── Storage ────────────────────────────────────────────────
         out.push_str(&format!("{}\n\n", OutputConfig::to_ascii("───────────────── Storage Changes ─────────────────")));
@@ -284,10 +285,7 @@ impl CompareEngine {
             out.push_str("  (identical)\n");
         } else {
             if !sd.only_in_a.is_empty() {
-                out.push_str(&format!(
-                    "  Keys only in A ({}):\n",
-                    sd.only_in_a.len()
-                ));
+                out.push_str(&format!("  Keys only in A ({}):\n", sd.only_in_a.len()));
                 for (k, v) in &sd.only_in_a {
                     out.push_str(&format!("    - {} = {}\n", k, v));
                 }
@@ -295,10 +293,7 @@ impl CompareEngine {
             }
 
             if !sd.only_in_b.is_empty() {
-                out.push_str(&format!(
-                    "  Keys only in B ({}):\n",
-                    sd.only_in_b.len()
-                ));
+                out.push_str(&format!("  Keys only in B ({}):\n", sd.only_in_b.len()));
                 for (k, v) in &sd.only_in_b {
                     out.push_str(&format!("    + {} = {}\n", k, v));
                 }
@@ -306,10 +301,7 @@ impl CompareEngine {
             }
 
             if !sd.modified.is_empty() {
-                out.push_str(&format!(
-                    "  Modified keys ({}):\n",
-                    sd.modified.len()
-                ));
+                out.push_str(&format!("  Modified keys ({}):\n", sd.modified.len()));
                 for (k, (va, vb)) in &sd.modified {
                     out.push_str(&format!("    ~ {}\n", k));
                     out.push_str(&format!("        A: {}\n", va));
@@ -354,8 +346,7 @@ impl CompareEngine {
                     out.push_str(&format!("\n  CPU change: {:+.2}%\n", pct));
                 }
                 if a.memory_bytes > 0 {
-                    let pct =
-                        (bd.memory_delta.unwrap_or(0) as f64 / a.memory_bytes as f64) * 100.0;
+                    let pct = (bd.memory_delta.unwrap_or(0) as f64 / a.memory_bytes as f64) * 100.0;
                     out.push_str(&format!("  Memory change: {:+.2}%\n", pct));
                 }
             }
@@ -428,10 +419,7 @@ impl CompareEngine {
             if ed.a_events.is_empty() {
                 out.push_str("  (no events in either trace)\n");
             } else {
-                out.push_str(&format!(
-                    "  (identical — {} event(s))\n",
-                    ed.a_events.len()
-                ));
+                out.push_str(&format!("  (identical — {} event(s))\n", ed.a_events.len()));
             }
         } else {
             out.push_str(&format!(
@@ -462,6 +450,7 @@ impl CompareEngine {
         out.push_str(&format!(
             "\n{double_rule}\n"
         ));
+        out.push_str("\n═══════════════════════════════════════════════════════════════\n");
 
         out
     }
@@ -500,18 +489,32 @@ mod tests {
             }),
             return_value: Some(serde_json::json!({"status": "ok"})),
             call_sequence: vec![
-                CallEntry { function: "transfer".to_string(), args: None, depth: 0 },
-                CallEntry { function: "get_balance".to_string(), args: Some("Alice".to_string()), depth: 1 },
-                CallEntry { function: "set_balance".to_string(), args: Some("Alice, 900".to_string()), depth: 1 },
-                CallEntry { function: "set_balance".to_string(), args: Some("Bob, 100".to_string()), depth: 1 },
-            ],
-            events: vec![
-                EventEntry {
-                    contract_id: Some("TOKEN01".to_string()),
-                    topics: vec!["transfer".to_string()],
-                    data: Some("Alice→Bob 100".to_string()),
+                CallEntry {
+                    function: "transfer".to_string(),
+                    args: None,
+                    depth: 0,
+                },
+                CallEntry {
+                    function: "get_balance".to_string(),
+                    args: Some("Alice".to_string()),
+                    depth: 1,
+                },
+                CallEntry {
+                    function: "set_balance".to_string(),
+                    args: Some("Alice, 900".to_string()),
+                    depth: 1,
+                },
+                CallEntry {
+                    function: "set_balance".to_string(),
+                    args: Some("Bob, 100".to_string()),
+                    depth: 1,
                 },
             ],
+            events: vec![EventEntry {
+                contract_id: Some("TOKEN01".to_string()),
+                topics: vec!["transfer".to_string()],
+                data: Some("Alice→Bob 100".to_string()),
+            }],
         }
     }
 
@@ -535,11 +538,31 @@ mod tests {
             }),
             return_value: Some(serde_json::json!({"status": "ok", "fee": 0})),
             call_sequence: vec![
-                CallEntry { function: "transfer".to_string(), args: None, depth: 0 },
-                CallEntry { function: "check_allowance".to_string(), args: Some("Alice".to_string()), depth: 1 },
-                CallEntry { function: "get_balance".to_string(), args: Some("Alice".to_string()), depth: 1 },
-                CallEntry { function: "set_balance".to_string(), args: Some("Alice, 900".to_string()), depth: 1 },
-                CallEntry { function: "set_balance".to_string(), args: Some("Bob, 150".to_string()), depth: 1 },
+                CallEntry {
+                    function: "transfer".to_string(),
+                    args: None,
+                    depth: 0,
+                },
+                CallEntry {
+                    function: "check_allowance".to_string(),
+                    args: Some("Alice".to_string()),
+                    depth: 1,
+                },
+                CallEntry {
+                    function: "get_balance".to_string(),
+                    args: Some("Alice".to_string()),
+                    depth: 1,
+                },
+                CallEntry {
+                    function: "set_balance".to_string(),
+                    args: Some("Alice, 900".to_string()),
+                    depth: 1,
+                },
+                CallEntry {
+                    function: "set_balance".to_string(),
+                    args: Some("Bob, 150".to_string()),
+                    depth: 1,
+                },
             ],
             events: vec![
                 EventEntry {
@@ -613,7 +636,11 @@ mod tests {
 
         assert!(!report.flow_diff.identical);
         // The diff should contain at least one OnlyB line (check_allowance)
-        assert!(report.flow_diff.diff_lines.iter().any(|l| matches!(l, DiffLine::OnlyB(_))));
+        assert!(report
+            .flow_diff
+            .diff_lines
+            .iter()
+            .any(|l| matches!(l, DiffLine::OnlyB(_))));
     }
 
     #[test]

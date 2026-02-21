@@ -188,20 +188,33 @@ impl StorageInspector {
     pub fn compute_diff(
         before: &HashMap<String, String>,
         after: &HashMap<String, String>,
+        alerts: &[String],
     ) -> StorageDiff {
         let mut added = HashMap::new();
         let mut modified = HashMap::new();
         let mut deleted = Vec::new();
+        let mut triggered_alerts = Vec::new();
+
+        let alert_filter = StorageFilter::new(alerts).unwrap_or_else(|e| {
+            tracing::warn!("Invalid alert pattern: {}", e);
+            StorageFilter::new(&[]).unwrap()
+        });
 
         for (key, val_after) in after {
             match before.get(key) {
                 Some(val_before) => {
                     if val_before != val_after {
                         modified.insert(key.clone(), (val_before.clone(), val_after.clone()));
+                        if alert_filter.matches(key) {
+                            triggered_alerts.push(key.clone());
+                        }
                     }
                 }
                 None => {
                     added.insert(key.clone(), val_after.clone());
+                    if alert_filter.matches(key) {
+                        triggered_alerts.push(key.clone());
+                    }
                 }
             }
         }
@@ -209,6 +222,9 @@ impl StorageInspector {
         for key in before.keys() {
             if !after.contains_key(key) {
                 deleted.push(key.clone());
+                if alert_filter.matches(key) {
+                    triggered_alerts.push(key.clone());
+                }
             }
         }
 
@@ -216,6 +232,7 @@ impl StorageInspector {
             added,
             modified,
             deleted,
+            triggered_alerts,
         }
     }
 
@@ -267,6 +284,18 @@ impl StorageInspector {
                 println!("  [REMOVED] {}", key);
             }
         }
+
+        if !diff.triggered_alerts.is_empty() {
+            println!(
+                "\n{}",
+                "!!! CRITICAL STORAGE ALERT !!!".with(Color::Red).bold()
+            );
+            let mut alerts = diff.triggered_alerts.clone();
+            alerts.sort();
+            for key in alerts {
+                println!("  {} was modified!", key.with(Color::Red).bold());
+            }
+        }
     }
 }
 
@@ -276,6 +305,7 @@ pub struct StorageDiff {
     pub added: HashMap<String, String>,
     pub modified: HashMap<String, (String, String)>,
     pub deleted: Vec<String>,
+    pub triggered_alerts: Vec<String>,
 }
 
 impl StorageDiff {
@@ -438,7 +468,7 @@ mod tests {
         let mut after = HashMap::new();
         after.insert("key1".to_string(), "val1".to_string());
 
-        let diff = StorageInspector::compute_diff(&before, &after);
+        let diff = StorageInspector::compute_diff(&before, &after, &[]);
         assert_eq!(diff.added.get("key1"), Some(&"val1".to_string()));
         assert!(diff.modified.is_empty());
         assert!(diff.deleted.is_empty());
@@ -451,7 +481,7 @@ mod tests {
         let mut after = HashMap::new();
         after.insert("key1".to_string(), "val_new".to_string());
 
-        let diff = StorageInspector::compute_diff(&before, &after);
+        let diff = StorageInspector::compute_diff(&before, &after, &[]);
         assert!(diff.added.is_empty());
         assert_eq!(diff.modified.get("key1"), Some(&("val_old".to_string(), "val_new".to_string())));
         assert!(diff.deleted.is_empty());
@@ -463,7 +493,7 @@ mod tests {
         before.insert("key1".to_string(), "val1".to_string());
         let after = HashMap::new();
 
-        let diff = StorageInspector::compute_diff(&before, &after);
+        let diff = StorageInspector::compute_diff(&before, &after, &[]);
         assert!(diff.added.is_empty());
         assert!(diff.modified.is_empty());
         assert_eq!(diff.deleted, vec!["key1".to_string()]);
@@ -481,12 +511,12 @@ mod tests {
         after.insert("modified".to_string(), "new".to_string());
         after.insert("added".to_string(), "fresh".to_string());
 
-        let diff = StorageInspector::compute_diff(&before, &after);
+        let diff = StorageInspector::compute_diff(&before, &after, &[]);
         assert_eq!(diff.added.len(), 1);
         assert_eq!(diff.modified.len(), 1);
         assert_eq!(diff.deleted.len(), 1);
         assert!(diff.added.contains_key("added"));
         assert!(diff.modified.contains_key("modified"));
-        assert!(diff.deleted.contains("deleted"));
+        assert!(diff.deleted.contains(&"deleted".to_string()));
     }
 }

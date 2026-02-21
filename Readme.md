@@ -7,12 +7,15 @@ A command-line debugger for Soroban smart contracts on the Stellar network. Debu
 ## Features
 
 - Step-through execution of Soroban contracts
+- **Source-Level Debugging**: Map WASM execution back to Rust source lines
+- **Time-Travel Debugging**: Step backward and navigate execution history
 - Set breakpoints at function boundaries
 - Inspect contract storage and state
 - Track resource usage (CPU and memory budget)
 - View call stacks for contract invocations
 - Interactive terminal UI for debugging sessions
 - Support for cross-contract calls
+- Parallel batch execution for regression testing
 
 ## Installation
 
@@ -28,6 +31,23 @@ cargo install --path .
 
 ```bash
 cargo install soroban-debugger
+```
+
+### Man Page
+
+A Unix man page is automatically generated for the CLI and all subcommands during the build process. To install them:
+
+```bash
+# After building from source
+sudo cp man/man1/soroban-debug* /usr/local/share/man/man1/
+```
+
+Once installed, you can access the documentation using:
+
+```bash
+man soroban-debug
+# For subcommands:
+man soroban-debug-run
 ```
 
 ## Quick Start
@@ -53,6 +73,7 @@ soroban-debug interactive --contract my_contract.wasm
 ```
 
 Then use commands like:
+
 - `s` or `step` - Execute next instruction
 - `c` or `continue` - Run until next breakpoint
 - `i` or `inspect` - Show current state
@@ -76,7 +97,53 @@ Options:
   -s, --storage <JSON>      Initial storage state as JSON
   -b, --breakpoint <NAME>   Set breakpoint at function name
       --storage-filter <PATTERN>  Filter storage by key pattern (repeatable)
+      --batch-args <FILE>   Path to JSON file with array of argument sets for batch execution
+      --watch               Watch the WASM file for changes and automatically re-run
 ```
+
+### Watch Mode
+
+Automatically reload and re-run when the WASM file changes:
+
+```bash
+soroban-debug run \
+  --contract target/wasm32-unknown-unknown/release/my_contract.wasm \
+  --function transfer \
+  --args '["user1", "user2", 100]' \
+  --watch
+```
+
+Perfect for development - edit your contract, rebuild, and see results immediately. See [docs/watch-mode.md](docs/watch-mode.md) for details.
+
+### Batch Execution
+
+Run the same contract function with multiple argument sets in parallel for regression testing:
+
+```bash
+soroban-debug run \
+  --contract token.wasm \
+  --function transfer \
+  --batch-args batch_tests.json
+```
+
+The batch args file should contain a JSON array of test cases:
+
+```json
+[
+  {
+    "args": "[\"Alice\", \"Bob\", 100]",
+    "expected": "Ok(())",
+    "label": "Transfer 100 tokens"
+  },
+  {
+    "args": "[\"Charlie\", \"Dave\", 50]",
+    "expected": "Ok(())",
+    "label": "Transfer 50 tokens"
+  }
+]
+```
+
+See [docs/batch-execution.md](docs/batch-execution.md) for detailed documentation.
 
 ### Storage Filtering
 
@@ -101,11 +168,74 @@ soroban-debug run --contract token.wasm --function mint \
   --storage-filter 'total_supply'
 ```
 
+#### Exporting Execution Traces
+
+You can export a full record of the contract execution to a JSON file using the `--trace-output` flag. This trace captures function calls, arguments, return values, storage snapshots (before and after), events, and budget consumption.
+
+```bash
+soroban-debug run \
+  --wasm contract.wasm \
+  --function hello \
+  --trace-output execution_trace.json
+```
+
+These traces can later be used with the `compare` command to identify regressions or differences between runs.
+
+##### Example Trace Output (JSON)
+
+An exported trace includes versioning, metadata, and full execution state:
+
+```json
+{
+  "version": "1.0",
+  "label": "Execution of hello",
+  "contract": "CA7QYNF5GE5XEC4HALXWFVQQ5TQWQ5LF7WMXMEQG7BWHBQV26YCWL5",
+  "function": "hello",
+  "args": "[\"world\"]",
+  "storage_before": {
+    "counter": "0"
+  },
+  "storage": {
+    "counter": "1"
+  },
+  "budget": {
+    "cpu_instructions": 1540,
+    "memory_bytes": 450,
+    "cpu_limit": 1000000,
+    "memory_limit": 1000000
+  },
+  "return_value": "void",
+  "call_sequence": [
+    {
+      "function": "hello",
+      "args": "[\"world\"]",
+      "depth": 0,
+      "budget": {
+        "cpu_instructions": 1540,
+        "memory_bytes": 450
+      }
+    }
+  ],
+  "events": [
+    {
+      "contract_id": "CA7Q...",
+      "topics": ["\"greeting\""],
+      "data": "\"Hello, world!\""
+    }
+  ]
+}
+```
+
 | Pattern          | Type   | Matches                                |
 |------------------|--------|----------------------------------------|
 | `balance:*`      | Prefix | Keys starting with `balance:`          |
 | `re:^user_\d+$`  | Regex  | Keys matching the regex                |
 | `total_supply`   | Exact  | Only the key `total_supply`            |
+| Pattern         | Type   | Matches                       |
+| --------------- | ------ | ----------------------------- |
+| `balance:*`     | Prefix | Keys starting with `balance:` |
+| `re:^user_\d+$` | Regex  | Keys matching the regex       |
+| `total_supply`  | Exact  | Only the key `total_supply`   |
 
 ### Interactive Command
 
@@ -127,6 +257,42 @@ soroban-debug inspect [OPTIONS]
 
 Options:
   -c, --contract <FILE>     Path to the contract WASM file
+```
+
+### Completions Command
+
+Generate shell completion scripts for your favorite shell:
+
+```bash
+soroban-debug completions bash > /usr/local/etc/bash_completion.d/soroban-debug
+```
+
+Supported shells: `bash`, `zsh`, `fish`, `powershell`.
+
+#### Installation Instructions
+
+**Bash:**
+
+```bash
+soroban-debug completions bash > /usr/local/etc/bash_completion.d/soroban-debug
+```
+
+**Zsh:**
+
+```bash
+soroban-debug completions zsh > /usr/local/share/zsh/site-functions/_soroban-debug
+```
+
+**Fish:**
+
+```bash
+soroban-debug completions fish > ~/.config/fish/completions/soroban-debug.fish
+```
+
+**PowerShell:**
+
+```powershell
+soroban-debug completions powershell >> $PROFILE
 ```
 
 ### Compare Command
@@ -191,6 +357,7 @@ soroban-debug run \
 ```
 
 Output:
+
 ```
 > Debugger started
 > Paused at: transfer
@@ -247,13 +414,13 @@ The debugger supports passing typed arguments to contract functions via the `--a
 
 ### Bare Values (Default Types)
 
-| JSON Value     | Soroban Type | Example               |
-|----------------|-------------|------------------------|
-| Number         | `i128`      | `10`, `-5`, `999`      |
-| String         | `Symbol`    | `"hello"`              |
-| Boolean        | `Bool`      | `true`, `false`        |
-| Array          | `Vec<Val>`  | `[1, 2, 3]`           |
-| Object         | `Map`       | `{"key": "value"}`     |
+| JSON Value | Soroban Type | Example            |
+| ---------- | ------------ | ------------------ |
+| Number     | `i128`       | `10`, `-5`, `999`  |
+| String     | `Symbol`     | `"hello"`          |
+| Boolean    | `Bool`       | `true`, `false`    |
+| Array      | `Vec<Val>`   | `[1, 2, 3]`        |
+| Object     | `Map`        | `{"key": "value"}` |
 
 ```bash
 # Bare values (numbers default to i128, strings to Symbol)
@@ -265,17 +432,18 @@ soroban-debug run --contract token.wasm --function transfer --args '["Alice", "B
 
 For precise type control, use `{"type": "<type>", "value": <value>}`:
 
-| Type     | Description               | Example                                    |
-|----------|---------------------------|--------------------------------------------|
-| `u32`    | Unsigned 32-bit integer   | `{"type": "u32", "value": 42}`             |
-| `i32`    | Signed 32-bit integer     | `{"type": "i32", "value": -5}`             |
-| `u64`    | Unsigned 64-bit integer   | `{"type": "u64", "value": 1000000}`        |
-| `i64`    | Signed 64-bit integer     | `{"type": "i64", "value": -999}`           |
-| `u128`   | Unsigned 128-bit integer  | `{"type": "u128", "value": 100}`           |
-| `i128`   | Signed 128-bit integer    | `{"type": "i128", "value": -100}`          |
-| `bool`   | Boolean value             | `{"type": "bool", "value": true}`          |
-| `symbol` | Soroban Symbol (≤32 chars)| `{"type": "symbol", "value": "hello"}`     |
-| `string` | Soroban String (any len)  | `{"type": "string", "value": "long text"}` |
+| Type     | Description                | Example                                    |
+| -------- | -------------------------- | ------------------------------------------ |
+| `u32`    | Unsigned 32-bit integer    | `{"type": "u32", "value": 42}`             |
+| `i32`    | Signed 32-bit integer      | `{"type": "i32", "value": -5}`             |
+| `u64`    | Unsigned 64-bit integer    | `{"type": "u64", "value": 1000000}`        |
+| `i64`    | Signed 64-bit integer      | `{"type": "i64", "value": -999}`           |
+| `u128`   | Unsigned 128-bit integer   | `{"type": "u128", "value": 100}`           |
+| `i128`   | Signed 128-bit integer     | `{"type": "i128", "value": -100}`          |
+| `bool`   | Boolean value              | `{"type": "bool", "value": true}`          |
+| `symbol` | Soroban Symbol (≤32 chars) | `{"type": "symbol", "value": "hello"}`     |
+| `string`  | Soroban String (any len)   | `{"type": "string", "value": "long text"}` |
+| `address` | Soroban Address (Contract/Acc) | `{"type": "address", "value": "C..."}`     |
 
 ```bash
 # Typed arguments for precise control
@@ -288,13 +456,21 @@ soroban-debug run --contract token.wasm --function transfer \
 # Soroban String for longer text
 soroban-debug run --contract dao.wasm --function create_proposal \
   --args '[{"type": "string", "value": "My proposal title"}]'
+
+# Address type (contract or account addresses)
+soroban-debug run --contract token.wasm --function balance_of \
+  --args '[{"type": "address", "value": "GD3IYSAL6Z2A3A4A3A4A3A4A3A4A3A4A3A4A3A4A3A4A3A4A3A4A3A4A"}]'
+
+# Bare address (auto-detected if starts with C or G and is 56 chars)
+soroban-debug run --contract token.wasm --function transfer \
+  --args '["CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADUI", "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", 100]'
 ```
 
 ### Error Handling
 
 The parser provides clear error messages for common issues:
 
-- **Unsupported type**: `Unsupported type: bytes. Supported types: u32, i32, u64, i64, u128, i128, bool, string, symbol`
+- **Unsupported type**: `Unsupported type: bytes. Supported types: u32, i32, u64, i64, u128, i128, bool, string, symbol, address`
 - **Out of range**: `Value out of range for type u32: 5000000000 (valid range: 0..=4294967295)`
 - **Type mismatch**: `Type/value mismatch: expected u32 (non-negative integer) but got "hello"`
 - **Invalid JSON**: `JSON parsing error: ...`
@@ -338,9 +514,9 @@ show_events = true
 
 ### Supported Settings
 
-| Setting | Path | Description |
-|---------|------|-------------|
-| `breakpoints` | `debug.breakpoints` | List of function names to set as breakpoints |
+| Setting       | Path                 | Description                                        |
+| ------------- | -------------------- | -------------------------------------------------- |
+| `breakpoints` | `debug.breakpoints`  | List of function names to set as breakpoints       |
 | `show_events` | `output.show_events` | Whether to show events by default (`true`/`false`) |
 
 ## Accessibility
@@ -382,7 +558,8 @@ Debug interactions between multiple contracts by following the call stack throug
 ### Testing Edge Cases
 
 Quickly test different input scenarios interactively without redeploying your contract.
-<!-- 
+
+<!--
 ## Project Structure
 
 ```
@@ -421,6 +598,29 @@ cargo test
 ```bash
 cargo run --example simple_token
 ```
+
+## Benchmarks
+
+The project includes a benchmark suite using [Criterion.rs](https://github.com/bheisler/criterion.rs) to track performance and prevent regressions.
+
+To run the full benchmark suite:
+
+```bash
+cargo bench
+```
+
+### Baseline Results (v0.1.0)
+
+| Component | Operation | Time (Baseline) |
+|-----------|-----------|-----------------|
+| Runtime | WASM Loading (100KB) | ~15 µs |
+| Runtime | Breakpoint Check (100 set) | ~20 ns |
+| Runtime | Call Stack Push/Pop | ~50 ns |
+| Parser | Argument Parsing (Complex) | ~100 µs |
+| Inspector | Storage Snapshot (1000 items) | ~0.5 ns |
+| Inspector | Storage Diff (1000 items) | ~60 µs |
+
+Benchmarks are run automatically in CI to ensure performance stays within acceptable bounds.
 
 ## Requirements
 
@@ -462,9 +662,10 @@ cargo clippy
 - Call stack visualization
 - Replay execution from trace
 
-### Phase 3
-- WASM instrumentation for precise breakpoints
-- Source map support
+### Phase 3 (Current)
+- Source map support for Rust debugging
+- Time-travel debugging (step back)
+- Visual execution timeline
 - Memory profiling
 - Performance analysis tools -->
 

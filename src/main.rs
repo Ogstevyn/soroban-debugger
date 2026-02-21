@@ -1,7 +1,17 @@
 use anyhow::Result;
 use clap::Parser;
+use is_terminal::IsTerminal;
 use soroban_debugger::cli::{Cli, Commands, Verbosity};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+fn show_banner() {
+    let version = env!("CARGO_PKG_VERSION");
+    println!("╔═══════════════════════════════════════╗");
+    println!("║   SOROBAN DEBUGGER v{:<16}  ║", version);
+    println!("║   Smart Contract Debugging Tool      ║");
+    println!("╚═══════════════════════════════════════╝");
+    println!();
+}
 
 fn initialize_tracing(verbosity: Verbosity) {
     let log_level = verbosity.to_log_level();
@@ -84,6 +94,76 @@ fn main() -> Result<()> {
                 _ => unreachable!(),
             }
         }
+    let cli = Cli::parse();
+    let verbosity = cli.verbosity();
+
+    // Show ASCII banner if conditions are met
+    let should_show_banner = std::io::stdout().is_terminal()
+        && !cli.no_banner
+        && std::env::var("NO_BANNER").is_err();
+    
+    if should_show_banner {
+        show_banner();
+    }
+
+    initialize_tracing(verbosity);
+
+    let result = match cli.command {
+        Commands::Run(args) => soroban_debugger::cli::commands::run(args, verbosity),
+        Commands::Interactive(args) => {
+            soroban_debugger::cli::commands::interactive(args, verbosity)
+        }
+        Commands::Inspect(args) => soroban_debugger::cli::commands::inspect(args, verbosity),
+        Commands::Optimize(args) => soroban_debugger::cli::commands::optimize(args, verbosity),
+        Commands::UpgradeCheck(args) => {
+            soroban_debugger::cli::commands::upgrade_check(args, verbosity)
+        }
+        Commands::Completions(_args) => {
+            eprintln!("Completions command not yet implemented");
+            return Ok(());
+        Some(Commands::Compare(args)) => soroban_debugger::cli::commands::compare(args),
+        Some(Commands::Completions(args)) => {
+            let mut cmd = Cli::command();
+            generate(args.shell, &mut cmd, "soroban-debug", &mut io::stdout());
+            Ok(())
+        }
+        Some(Commands::Profile(args)) => {
+            soroban_debugger::cli::commands::profile(args)?;
+            Ok(())
+        }
+        Some(Commands::Symbolic(args)) => {
+            soroban_debugger::cli::commands::symbolic(args, verbosity)
+        }
+        None => {
+            if let Some(path) = cli.list_functions {
+                return soroban_debugger::cli::commands::inspect(
+                    soroban_debugger::cli::args::InspectArgs {
+                        contract: path,
+                        wasm: None,
+                        functions: true,
+                        metadata: false,
+                    },
+                    verbosity,
+                );
+            }
+            if cli.budget_trend {
+                soroban_debugger::cli::commands::show_budget_trend(
+                    cli.trend_contract.as_deref(),
+                    cli.trend_function.as_deref(),
+                )
+            } else {
+                let mut cmd = Cli::command();
+                cmd.print_help()?;
+                println!();
+                Ok(())
+            }
+        }
+        Commands::Compare(args) => soroban_debugger::cli::commands::compare(args),
+    };
+
+    if let Err(err) = result {
+        eprintln!("Error: {err:#}");
+        return Err(err);
     }
 
     Ok(())
