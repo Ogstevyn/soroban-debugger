@@ -112,6 +112,11 @@ impl ContractExecutor {
         self.env.host()
     }
 
+    /// Get the contract address
+    pub fn contract_address(&self) -> &Address {
+        &self.contract_address
+    }
+
     /// Parse JSON arguments into contract values
     fn parse_args(&self, args_json: &str) -> Result<Vec<Val>> {
         info!("Parsing arguments: {}", args_json);

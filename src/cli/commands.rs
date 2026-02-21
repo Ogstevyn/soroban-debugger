@@ -107,6 +107,16 @@ pub fn run(args: RunArgs) -> Result<()> {
         inspector.display_filtered(&storage_filter);
     }
 
+    // Export execution trace if requested
+    if let Some(trace_path) = &args.trace_output {
+        if let Some(trace) = engine.last_trace() {
+            let trace_json = trace.to_json()?;
+            fs::write(trace_path, trace_json)
+                .with_context(|| format!("Failed to write trace to: {:?}", trace_path))?;
+            println!("\nExecution trace exported to: {:?}", trace_path);
+        }
+    }
+
     // If output format is JSON, print full result as JSON and exit
     if let Some(format) = &args.format {
         if format.eq_ignore_ascii_case("json") {

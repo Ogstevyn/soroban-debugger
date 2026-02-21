@@ -58,6 +58,10 @@ pub struct RunArgs {
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
 
+    /// Path to export the execution trace as JSON
+    #[arg(long)]
+    pub trace_output: Option<PathBuf>,
+
     /// Enable verbose output
     #[arg(short, long)]
     pub verbose: bool,

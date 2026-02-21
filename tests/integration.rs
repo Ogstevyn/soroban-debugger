@@ -9,3 +9,6 @@ mod compare_tests;
 
 #[path = "integration/budget_threshold_tests.rs"]
 mod budget_threshold_tests;
+
+#[path = "integration/trace_export_tests.rs"]
+mod trace_export_tests;
