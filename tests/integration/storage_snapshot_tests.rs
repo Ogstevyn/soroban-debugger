@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use tempfile::TempDir;
@@ -8,7 +8,7 @@ fn test_export_storage_creates_file() {
     let temp_dir = TempDir::new().unwrap();
     let export_path = temp_dir.path().join("storage.json");
 
-    let mut cmd = Command::cargo_bin("soroban-debug").unwrap();
+    let mut cmd = cargo_bin_cmd!("soroban-debug");
     cmd.arg("run")
         .arg("--contract")
         .arg("tests/fixtures/wasm/hello_world.wasm")
@@ -33,7 +33,7 @@ fn test_import_storage_flag_accepted() {
     let storage_content = r#"{"entries":{"key1":"value1"}}"#;
     fs::write(&import_path, storage_content).unwrap();
 
-    let mut cmd = Command::cargo_bin("soroban-debug").unwrap();
+    let mut cmd = cargo_bin_cmd!("soroban-debug");
     cmd.arg("run")
         .arg("--contract")
         .arg("tests/fixtures/wasm/hello_world.wasm")
@@ -56,7 +56,7 @@ fn test_import_and_export_together() {
     let storage_content = r#"{"entries":{"key1":"value1","key2":"value2"}}"#;
     fs::write(&import_path, storage_content).unwrap();
 
-    let mut cmd = Command::cargo_bin("soroban-debug").unwrap();
+    let mut cmd = cargo_bin_cmd!("soroban-debug");
     cmd.arg("run")
         .arg("--contract")
         .arg("tests/fixtures/wasm/hello_world.wasm")
@@ -73,7 +73,7 @@ fn test_import_and_export_together() {
 
 #[test]
 fn test_help_shows_storage_flags() {
-    let mut cmd = Command::cargo_bin("soroban-debug").unwrap();
+    let mut cmd = cargo_bin_cmd!("soroban-debug");
     cmd.arg("run").arg("--help");
 
     cmd.assert()

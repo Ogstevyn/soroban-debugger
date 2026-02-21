@@ -74,66 +74,23 @@ impl DebuggerEngine {
         self.instruction_debug_enabled
     }
 
-    /// Execute a contract function with debugging
-    pub fn execute(
-        &mut self,
-        function: &str,
-        args: Option<&str>,
-    ) -> Result<crate::runtime::executor::ExecutionResult> {
     /// Execute a contract function with debugging.
     pub fn execute(&mut self, function: &str, args: Option<&str>) -> Result<String> {
         info!("Executing function: {}", function);
 
-        // Initialize stack state
-        self.state.set_current_function(function.to_string(), args.map(|a| a.to_string()));
-        self.state.call_stack_mut().clear();
-        self.state.call_stack_mut().push(function.to_string(), None);
+        if let Ok(mut state) = self.state.lock() {
+            state.set_current_function(function.to_string(), args.map(str::to_string));
+            state.call_stack_mut().clear();
+            state.call_stack_mut().push(function.to_string(), None);
+        }
 
         if self.breakpoints.should_break(function) {
-            self.pause_at_function(function, args);
+            self.pause_at_function(function);
         }
 
         let start_time = std::time::Instant::now();
         let result = self.executor.execute(function, args);
         let duration = start_time.elapsed();
-
-        // Capture final storage and generate test if enabled
-        if self.generate_test {
-            let storage_after =
-                crate::inspector::storage::StorageInspector::capture_snapshot(self.executor.host());
-            let output_str = match &result {
-                Ok(out) => out.result.clone(),
-                Err(e) => format!("Error: {}", e),
-            };
-
-            let arg_vec = if let Some(a) = args {
-                vec![a.to_string()]
-            } else {
-                vec![]
-            };
-
-            let codegen = crate::codegen::TestGenerator::new(
-                self.test_output_dir
-                    .clone()
-                    .unwrap_or_else(|| std::path::PathBuf::from("tests/generated")),
-            );
-
-            // Paths handling
-            let contract_path = std::path::PathBuf::from("contract.wasm"); // This should be passed in ideally
-
-            if let Err(e) = codegen.generate_test(
-                &contract_path,
-                function,
-                arg_vec,
-                &output_str,
-                &storage_before,
-                &storage_after,
-            ) {
-                tracing::error!("Failed to generate test: {}", e);
-            } else {
-                tracing::info!("Test generated successfully in {:?}", self.test_output_dir);
-            }
-        }
 
         self.update_call_stack(duration)?;
 
@@ -286,11 +243,14 @@ impl DebuggerEngine {
         Ok(())
     }
 
-    /// Pause execution at a function
-    fn pause_at_function(&mut self, function: &str, args: Option<&str>) {
+    fn pause_at_function(&mut self, function: &str) {
+        crate::logging::log_breakpoint(function);
         self.paused = true;
-        self.state.set_current_function(function.to_string(), args.map(|a| a.to_string()));
-        info!("Breakpoint triggered at function: {}", function);
+
+        if let Ok(mut state) = self.state.lock() {
+            state.set_current_function(function.to_string(), None);
+            state.call_stack().display();
+        }
     }
 
     pub fn is_paused(&self) -> bool {

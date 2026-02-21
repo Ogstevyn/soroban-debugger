@@ -1,6 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use soroban_debugger::debugger::breakpoint::BreakpointManager;
-use soroban_debugger::inspector::{BudgetInspector, CallStackInspector, StorageInspector};
 use soroban_debugger::inspector::{CallStackInspector, StorageInspector};
 use soroban_debugger::utils::arguments::ArgumentParser;
 use soroban_sdk::Env;
@@ -53,9 +52,9 @@ fn bench_argument_parsing(c: &mut Criterion) {
     ]"#;
 
     c.bench_function("argument_parsing_complex", |b| {
-        let env = Env::default();
-        let parser = ArgumentParser::new(env);
         b.iter(|| {
+            let env = Env::default();
+            let parser = ArgumentParser::new(env);
             let result = parser.parse_args_string(black_box(complex_json)).unwrap();
             black_box(result);
         })

@@ -25,8 +25,10 @@ pub fn parse_functions(wasm_bytes: &[u8]) -> Result<Vec<String>> {
 
 /// Get high-level module statistics and section breakdown from a WASM binary.
 pub fn get_module_info(wasm_bytes: &[u8]) -> Result<ModuleInfo> {
-    let mut info = ModuleInfo::default();
-    info.total_size = wasm_bytes.len();
+    let mut info = ModuleInfo {
+        total_size: wasm_bytes.len(),
+        ..ModuleInfo::default()
+    };
     let parser = Parser::new(0);
 
     for payload in parser.parse_all(wasm_bytes) {
@@ -602,13 +604,17 @@ implementation_notes=Line-based format
     fn test_get_module_info_with_sections() {
         let wasm = make_custom_section_wasm("test_section", &[0x01, 0x02, 0x03]);
         let info = get_module_info(&wasm).expect("should parse");
-        
+
         assert_eq!(info.total_size, wasm.len());
         // Should have at least the custom section
         assert!(!info.sections.is_empty());
-        let custom_section = info.sections.iter().find(|s| s.name.contains("test_section"));
+        let custom_section = info
+            .sections
+            .iter()
+            .find(|s| s.name.contains("test_section"));
         assert!(custom_section.is_some());
-        assert_eq!(custom_section.unwrap().size, 12 + 3); // name len (1) + name (12) + data (3) - wait, name "test_section" is 12 chars
+        // Payload size: name length byte (1) + section name bytes (12) + data bytes (3).
+        assert_eq!(custom_section.unwrap().size, 1 + 12 + 3);
     }
 
     #[test]
