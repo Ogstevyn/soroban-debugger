@@ -29,6 +29,9 @@
 
 use hex;
 use serde_json::Value;
+use soroban_sdk::{
+    Bytes, Env, Map, String as SorobanString, Symbol, TryFromVal, Val, Vec as SorobanVec,
+};
 use soroban_sdk::{Env, Map, String as SorobanString, Symbol, TryFromVal, Val, Vec as SorobanVec};
 use thiserror::Error;
 use tracing::{debug, warn};
@@ -574,6 +577,26 @@ impl ArgumentParser {
         }
 
         Ok(soroban_map.into())
+    }
+
+    #[allow(dead_code)]
+    fn string_to_bytes(&self, input: &str) -> Result<Vec<u8>, String> {
+        if let Some(hex_str) = input.strip_prefix("0x") {
+            hex::decode(hex_str).map_err(|e| format!("Invalid hex: {}", e))
+        } else if let Some(b64_str) = input.strip_prefix("base64:") {
+            general_purpose::STANDARD
+                .decode(b64_str)
+                .map_err(|e| format!("Invalid base64: {}", e))
+        } else {
+            Err("Bytes must start with '0x' or 'base64:'".to_string())
+        }
+    }
+
+    // Example of how to integrate into the main parser
+    #[allow(dead_code)]
+    fn parse_as_bytes(&self, input: &str) -> Result<Bytes, String> {
+        let vec = self.string_to_bytes(input)?;
+        Ok(Bytes::from_slice(&self.env, &vec))
     }
 }
 
