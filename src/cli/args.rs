@@ -22,11 +22,6 @@ impl Verbosity {
     }
 }
 
-/// Trait for CLI argument structs that support deprecated flag consolidation.
-pub trait ConsolidateDeprecations {
-    fn consolidate_deprecations(&mut self) -> Vec<String>;
-}
-
 #[derive(Parser)]
 #[command(name = "soroban-debug")]
 #[command(about = "A debugger for Soroban smart contracts", long_about = None)]
@@ -92,6 +87,10 @@ pub struct RunArgs {
     #[arg(short, long)]
     pub contract: PathBuf,
 
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
+
     /// Function name to execute
     #[arg(short, long)]
     pub function: String,
@@ -111,6 +110,10 @@ pub struct RunArgs {
     /// Network snapshot file to load before execution
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
+
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 
     /// Enable verbose output
     #[arg(short, long)]
@@ -165,57 +168,9 @@ pub struct RunArgs {
     /// Path to JSON file containing array of argument sets for batch execution
     #[arg(long)]
     pub batch_args: Option<PathBuf>,
-
-    // ── Deprecated flags ──────────────────────────────────────────────────────
-
-    #[arg(long = "contract-path", hide = true)]
-    pub deprecated_contract: Option<PathBuf>,
-
-    #[arg(long = "fn", hide = true)]
-    pub deprecated_function: Option<String>,
-
-    #[arg(long = "params", hide = true)]
-    pub deprecated_params: Option<String>,
-
-    #[arg(long = "snapshot", hide = true)]
-    pub deprecated_snapshot: Option<PathBuf>,
 }
 
-impl ConsolidateDeprecations for RunArgs {
-    /// Consolidate deprecated flags and return list of warnings.
-    fn consolidate_deprecations(&mut self) -> Vec<String> {
-        let mut warnings = Vec::new();
-
-        if let Some(path) = self.deprecated_contract.take() {
-            warnings.push("Flag '--contract-path' is deprecated. Use '--contract' instead.".to_string());
-            if self.contract == PathBuf::default() || self.contract.to_str() == Some("") {
-                 self.contract = path;
-            }
-        }
-
-        if let Some(func) = self.deprecated_function.take() {
-            warnings.push("Flag '--fn' is deprecated. Use '--function' instead.".to_string());
-            if self.function.is_empty() {
-                self.function = func;
-            }
-        }
-
-        if let Some(args) = self.deprecated_params.take() {
-            warnings.push("Flag '--params' is deprecated. Use '--args' instead.".to_string());
-            if self.args.is_none() {
-                self.args = Some(args);
-            }
-        }
-
-        if let Some(snap) = self.deprecated_snapshot.take() {
-            warnings.push("Flag '--snapshot' is deprecated. Use '--network-snapshot' instead.".to_string());
-            if self.network_snapshot.is_none() {
-                self.network_snapshot = Some(snap);
-            }
-        }
-
-        warnings
-    }
+impl RunArgs {
     pub fn merge_config(&mut self, config: &Config) {
         // Breakpoints
         if self.breakpoint.is_empty() && !config.debug.breakpoints.is_empty() {
@@ -251,39 +206,20 @@ pub struct InteractiveArgs {
     #[arg(short, long)]
     pub contract: PathBuf,
 
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
+
     /// Network snapshot file to load before starting interactive session
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
 
-    // ── Deprecated flags ──────────────────────────────────────────────────────
-
-    #[arg(long = "contract-path", hide = true)]
-    pub deprecated_contract: Option<PathBuf>,
-
-    #[arg(long = "snapshot", hide = true)]
-    pub deprecated_snapshot: Option<PathBuf>,
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 }
 
-impl ConsolidateDeprecations for InteractiveArgs {
-    fn consolidate_deprecations(&mut self) -> Vec<String> {
-        let mut warnings = Vec::new();
-
-        if let Some(path) = self.deprecated_contract.take() {
-            warnings.push("Flag '--contract-path' is deprecated. Use '--contract' instead.".to_string());
-            if self.contract == PathBuf::default() || self.contract.to_str() == Some("") {
-                self.contract = path;
-            }
-        }
-
-        if let Some(snap) = self.deprecated_snapshot.take() {
-            warnings.push("Flag '--snapshot' is deprecated. Use '--network-snapshot' instead.".to_string());
-            if self.network_snapshot.is_none() {
-                self.network_snapshot = Some(snap);
-            }
-        }
-
-        warnings
-    }
+impl InteractiveArgs {
     pub fn merge_config(&mut self, _config: &Config) {
         // Future interactive-specific config could go here
     }
@@ -294,6 +230,10 @@ pub struct InspectArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
 
     /// Show exported functions
     #[arg(long)]
@@ -306,26 +246,6 @@ pub struct InspectArgs {
     /// Output format as JSON
     #[arg(long)]
     pub json: bool,
-
-    // ── Deprecated flags ──────────────────────────────────────────────────────
-
-    #[arg(long = "contract-path", hide = true)]
-    pub deprecated_contract: Option<PathBuf>,
-}
-
-impl ConsolidateDeprecations for InspectArgs {
-    fn consolidate_deprecations(&mut self) -> Vec<String> {
-        let mut warnings = Vec::new();
-
-        if let Some(path) = self.deprecated_contract.take() {
-            warnings.push("Flag '--contract-path' is deprecated. Use '--contract' instead.".to_string());
-            if self.contract == PathBuf::default() || self.contract.to_str() == Some("") {
-                self.contract = path;
-            }
-        }
-
-        warnings
-    }
 }
 
 #[derive(Parser)]
@@ -333,6 +253,10 @@ pub struct OptimizeArgs {
     /// Path to the contract WASM file
     #[arg(short, long)]
     pub contract: PathBuf,
+
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
 
     /// Function name to analyze (can be specified multiple times)
     #[arg(short, long)]
@@ -354,55 +278,9 @@ pub struct OptimizeArgs {
     #[arg(long)]
     pub network_snapshot: Option<PathBuf>,
 
-    // ── Deprecated flags ──────────────────────────────────────────────────────
-
-    #[arg(long = "contract-path", hide = true)]
-    pub deprecated_contract: Option<PathBuf>,
-
-    #[arg(long = "fn", hide = true)]
-    pub deprecated_function: Option<String>,
-
-    #[arg(long = "params", hide = true)]
-    pub deprecated_params: Option<String>,
-
-    #[arg(long = "snapshot", hide = true)]
-    pub deprecated_snapshot: Option<PathBuf>,
-}
-
-impl ConsolidateDeprecations for OptimizeArgs {
-    fn consolidate_deprecations(&mut self) -> Vec<String> {
-        let mut warnings = Vec::new();
-
-        if let Some(path) = self.deprecated_contract.take() {
-            warnings.push("Flag '--contract-path' is deprecated. Use '--contract' instead.".to_string());
-            if self.contract == PathBuf::default() || self.contract.to_str() == Some("") {
-                self.contract = path;
-            }
-        }
-
-        if let Some(func) = self.deprecated_function.take() {
-            warnings.push("Flag '--fn' is deprecated. Use '--function' instead.".to_string());
-            if self.function.is_empty() {
-                self.function.push(func);
-            }
-        }
-
-        if let Some(args) = self.deprecated_params.take() {
-            warnings.push("Flag '--params' is deprecated. Use '--args' instead.".to_string());
-            if self.args.is_none() {
-                self.args = Some(args);
-            }
-        }
-
-        if let Some(snap) = self.deprecated_snapshot.take() {
-            warnings.push("Flag '--snapshot' is deprecated. Use '--network-snapshot' instead.".to_string());
-            if self.network_snapshot.is_none() {
-                self.network_snapshot = Some(snap);
-            }
-        }
-
-        warnings
-    }
+    /// Deprecated: use --network-snapshot instead
+    #[arg(long, hide = true, alias = "snapshot")]
+    pub snapshot: Option<PathBuf>,
 }
 
 #[derive(Parser)]
@@ -456,6 +334,10 @@ pub struct ProfileArgs {
     #[arg(short, long)]
     pub contract: PathBuf,
 
+    /// Deprecated: use --contract instead
+    #[arg(long, hide = true, alias = "wasm", alias = "contract-path")]
+    pub wasm: Option<PathBuf>,
+
     /// Function name to execute
     #[arg(short, long)]
     pub function: String,
@@ -471,44 +353,4 @@ pub struct ProfileArgs {
     /// Initial storage state as JSON object
     #[arg(short, long)]
     pub storage: Option<String>,
-
-    // ── Deprecated flags ──────────────────────────────────────────────────────
-
-    #[arg(long = "contract-path", hide = true)]
-    pub deprecated_contract: Option<PathBuf>,
-
-    #[arg(long = "fn", hide = true)]
-    pub deprecated_function: Option<String>,
-
-    #[arg(long = "params", hide = true)]
-    pub deprecated_params: Option<String>,
-}
-
-impl ConsolidateDeprecations for ProfileArgs {
-    fn consolidate_deprecations(&mut self) -> Vec<String> {
-        let mut warnings = Vec::new();
-
-        if let Some(path) = self.deprecated_contract.take() {
-            warnings.push("Flag '--contract-path' is deprecated. Use '--contract' instead.".to_string());
-            if self.contract == PathBuf::default() || self.contract.to_str() == Some("") {
-                self.contract = path;
-            }
-        }
-
-        if let Some(func) = self.deprecated_function.take() {
-            warnings.push("Flag '--fn' is deprecated. Use '--function' instead.".to_string());
-            if self.function.is_empty() {
-                self.function = func;
-            }
-        }
-
-        if let Some(args) = self.deprecated_params.take() {
-            warnings.push("Flag '--params' is deprecated. Use '--args' instead.".to_string());
-            if self.args.is_none() {
-                self.args = Some(args);
-            }
-        }
-
-        warnings
-    }
 }
